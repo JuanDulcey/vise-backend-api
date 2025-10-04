@@ -1,0 +1,41 @@
+name: Build container and run VISE API testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      PORT:
+        description: 'The port of your application'
+        required: true
+        default: "8000"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build docker image
+        run: docker build -t vise-api:latest .
+
+      - name: Run container
+        run: |
+          docker run -d -p ${{ github.event.inputs.PORT }}:8000 --name vise-api vise-api:latest
+          echo "Waiting for API to be ready..."
+          for i in {1..30}; do
+            if curl -s http://localhost:${{ github.event.inputs.PORT }}/health >/dev/null; then
+              echo "API is ready!"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Setup hurl (API testing tool)
+        uses: gacts/install-hurl@v1
+
+      - name: Test API
+        run: hurl session.hurl --variable host=http://localhost:${{ github.event.inputs.PORT }} --error-format long
