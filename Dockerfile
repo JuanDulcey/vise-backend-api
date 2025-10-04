@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH="/vise-backend-api" \
+    PYTHONPATH="/app" \
     PORT=8000
 
-WORKDIR /vise-backend-api
+WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
