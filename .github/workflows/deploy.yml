@@ -16,11 +16,11 @@ on:
         required: true
       PORT:
         description: 'Port of the application'
-        required: true
         default: '443'
+        required: true
 
 env:
-  IMAGE_URL: ${{ secrets.ACR_NAME }}.azurecr.io/${{ github.event.inputs.IMAGE_REPOSITORY }}:${{ github.event.inputs.IMAGE_TAG }}
+  IMAGE_URL: ${{ secrets.ACR_NAME_JUANDULCEY }}.azurecr.io/${{ github.event.inputs.IMAGE_REPOSITORY }}:${{ github.event.inputs.IMAGE_TAG }}
 
 jobs:
   build-and-push-image:
@@ -33,9 +33,9 @@ jobs:
       - name: Docker Login
         uses: azure/docker-login@v1
         with:
-          login-server: ${{ secrets.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          login-server: ${{ secrets.ACR_NAME_JUANDULCEY }}.azurecr.io
+          username: ${{ secrets.ACR_NAME_JUANDULCEY }}
+          password: ${{ secrets.ACR_PASSWORD_JUANDULCEY }}
 
       - name: Build and Push to ACR
         uses: docker/build-push-action@v6
