@@ -5,3 +5,9 @@ pydantic-settings==2.1.0
 python-multipart==0.0.6
 pytest==7.4.3
 httpx==0.25.2
+
+# OpenTelemetry core and auto-instrumentation
+opentelemetry-distro
+opentelemetry-exporter-otlp
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-uvicorn
