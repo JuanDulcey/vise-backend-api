@@ -24,7 +24,7 @@ jobs:
 
       - name: Run container
         run: |
-          docker run -d -p ${{ github.event.inputs.PORT }}:443 --name vise-api vise-api:latest
+          docker run -d -p ${{ github.event.inputs.PORT }}:8000 --name vise-api vise-api:latest
           echo "Waiting for API to be ready..."
           for i in {1..30}; do
             if curl -s http://localhost:${{ github.event.inputs.PORT }}/health >/dev/null; then
