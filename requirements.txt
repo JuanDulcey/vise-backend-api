@@ -8,7 +8,12 @@ httpx==0.25.2
 axiom-py==0.8.0
 python-dotenv==1.0.0
 
-# OpenTelemetry sin versiones específicas (más estable)
+opentelemetry-api
 opentelemetry-sdk
-opentelemetry-exporter-otlp
+opentelemetry-semantic-conventions
 opentelemetry-instrumentation
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-httpx
+opentelemetry-instrumentation-requests
+opentelemetry-distro
+opentelemetry-exporter-otlp
