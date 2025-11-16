@@ -22,20 +22,104 @@ jobs:
       - name: Build docker image
         run: docker build -t vise-api:latest .
 
-      - name: Run container
+      - name: Debug Docker setup
         run: |
-          docker run -d -p ${{ github.event.inputs.PORT }}:8000 --name vise-api vise-api:latest
-          echo "Waiting for API to be ready..."
-          for i in {1..30}; do
-            if curl -s http://localhost:${{ github.event.inputs.PORT }}/health >/dev/null; then
-              echo "API is ready!"
+          echo "=== Docker Info ==="
+          docker --version
+          docker images
+          echo "=== Built Image ==="
+          docker images | grep vise-api
+
+      - name: Run container with extensive debugging
+        run: |
+          echo "=== Starting Container ==="
+          # Ejecutar el contenedor
+          docker run -d \
+            -p 8000:8000 \
+            -e AXIOM_TOKEN="${{ secrets.AXIOM_TOKEN }}" \
+            -e AXIOM_DATASET="${{ secrets.AXIOM_DATASET }}" \
+            --name vise-api \
+            vise-api:latest
+          
+          echo "=== Container Status ==="
+          docker ps -a
+          
+          echo "=== Container Logs (first check) ==="
+          docker logs vise-api || echo "No logs yet"
+          
+          # Esperar un poco para que la app inicie
+          echo "=== Waiting for app to start ==="
+          sleep 10
+          
+          echo "=== Container Logs (after wait) ==="
+          docker logs vise-api
+          
+          echo "=== Check processes inside container ==="
+          docker exec vise-api ps aux || echo "Cannot check processes"
+          
+          echo "=== Check if app files exist ==="
+          docker exec vise-api ls -la /app || echo "Cannot list files"
+          
+          echo "=== Check Python in container ==="
+          docker exec vise-api python --version || echo "Python not found"
+          
+          echo "=== Network check ==="
+          netstat -tulpn | grep 8000 || echo "Nothing on port 8000"
+          docker port vise-api
+
+      - name: Wait for API with better debugging
+        run: |
+          echo "=== Waiting for API to be ready ==="
+          for i in {1..20}; do
+            echo "Attempt $i/20"
+            
+            # Verificar contenedor está corriendo
+            if ! docker ps | grep -q vise-api; then
+              echo "❌ Container is not running"
+              docker logs vise-api
+              exit 1
+            fi
+            
+            # Verificar salud con curl
+            if curl -f -s -m 5 http://localhost:8000/health >/dev/null; then
+              echo "✅ API is ready and responding!"
+              curl -v http://localhost:8000/health
               break
             fi
-            sleep 1
+            
+            # Mostrar logs si falla
+            if [ $i -gt 5 ]; then
+              echo "=== Recent container logs ==="
+              docker logs vise-api --tail 20
+            fi
+            
+            sleep 3
+            
+            if [ $i -eq 20 ]; then
+              echo "❌ API failed to start after 60 seconds"
+              echo "=== Final container logs ==="
+              docker logs vise-api
+              echo "=== Container details ==="
+              docker inspect vise-api
+              exit 1
+            fi
           done
 
-      - name: Setup hurl (API testing tool)
+      - name: Setup hurl
         uses: gacts/install-hurl@v1
 
-      - name: Test API
-        run: hurl session.hurl --variable host=http://localhost:${{ github.event.inputs.PORT }} --error-format long
+      - name: Test API endpoints
+        run: |
+          echo "=== Testing individual endpoints ==="
+          curl -v http://localhost:8000/ || echo "Root failed"
+          curl -v http://localhost:8000/health || echo "Health failed"
+          curl -v http://localhost:8000/docs || echo "Docs failed"
+
+      - name: Test API with Hurl
+        run: hurl session.hurl --variable host=http://localhost:8000 --error-format long --verbose
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop vise-api || true
+          docker rm vise-api || true
