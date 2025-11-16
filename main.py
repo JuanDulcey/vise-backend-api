@@ -1,32 +1,33 @@
-from fastapi import FastAPI
+# main.py
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+# Routers
 from app.routers import clientes
 
-# OpenTelemetry setup
-import otel_setup
-from azure.monitor.opentelemetry import configure_azure_monitor
+# Logs Axiom (los mismos que ya tienes)
+from axiom_logger import setup_logger
+
+# OpenTelemetry
+from exporter import tracer  # activa el OTLP exporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.urllib import URLLibInstrumentor
 
-
-# Configura Azure Monitor directamente con el string de conexión
-configure_azure_monitor(
-    connection_string="InstrumentationKey=235ce92f-07ea-41f2-8015-bed44710efa7;IngestionEndpoint=https://mexicocentral-0.in.applicationinsights.azure.com/;LiveEndpoint=https://mexicocentral.livediagnostics.monitor.azure.com/;ApplicationId=d47e9fa7-a0c0-473c-a61f-b2fa8ca7bd89"
-)
+# ============================================
+# 🚀 CONFIG FASTAPI
+# ============================================
 
 app = FastAPI(
     title="API Clientes",
-    description="API para manejo de clientes",
+    description="API con telemetría completa OTLP + Axiom",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# Instrumentación de FastAPI y solicitudes HTTP
-FastAPIInstrumentor.instrument_app(app)
-RequestsInstrumentor().instrument()
-
-# Middleware CORS
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,15 +36,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============================================
+# 🧩 Inicializar Logger Axiom
+# ============================================
 
-# Rutas
+client, logger = setup_logger()
+
+# ============================================
+# 🎯 INSTRUMENTACIÓN COMPLETA
+# ============================================
+
+# Spans para cada request FastAPI
+FastAPIInstrumentor.instrument_app(app)
+
+# Correlación automática log ↔ trace
+LoggingInstrumentor().instrument(set_logging_format=True)
+
+# Instrumentación para peticiones HTTP salientes
+RequestsInstrumentor().instrument()
+URLLibInstrumentor().instrument()
+
+# ============================================
+# 📦 Middleware adicional sólo para logs extra
+# (NO genera spans, solo metadata)
+# ============================================
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    response = await call_next(request)
+    logger.info(
+        "Petición procesada",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+        },
+    )
+    return response
+
+# ============================================
+# 🧩 RUTAS
+# ============================================
+
 app.include_router(clientes.router)
-
 
 @app.get("/")
 async def root():
-    return {"message": "Hello from FastAPI with App Insights!"}
+    logger.info("Ruta / llamada", extra={"path": "/"})
+    return {"message": "Hello with FULL telemetry!"}
 
+# ============================================
+# ▶️ EJECUCIÓN LOCAL
+# ============================================
 
 if __name__ == "__main__":
     import uvicorn
