@@ -6,7 +6,7 @@ on:
       PORT:
         description: 'The port of your application'
         required: true
-        default: "443"
+        default: "8000"
 
 jobs:
   test:
